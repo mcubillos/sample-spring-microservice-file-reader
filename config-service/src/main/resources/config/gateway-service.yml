@@ -1,0 +1,31 @@
+server:
+  port: 8060
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8061/eureka/
+
+logging:
+  pattern: 
+    console: "%d{yyyy-MM-dd HH:mm:ss} ${LOG_LEVEL_PATTERN:-%5p} %m%n"
+              
+spring:
+  cloud:
+    gateway:
+      discovery:
+        locator:
+          enabled: true
+      routes:
+      - id: upload-service
+        uri: lb://upload-service
+        predicates:
+        - Path=/upload/**
+        filters:
+        - RewritePath=/upload/(?<path>.*), /$\{path}
+      - id: process-service
+        uri: lb://process-service
+        predicates:
+        - Path=/process/**
+        filters:
+        - RewritePath=/process/(?<path>.*), /$\{path}
