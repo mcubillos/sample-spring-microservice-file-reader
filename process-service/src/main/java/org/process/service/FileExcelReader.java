@@ -1,7 +1,7 @@
 package org.process.service;
 
-import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,9 +33,9 @@ public class FileExcelReader implements FileReaderService {
 		this.repositoryRows = repositoryRows;
 	}
 
-	public List<String> getSheets(File file) {
+	public List<String> getSheets(InputStream inputStream) {
 		try {
-			workbook = WorkbookFactory.create(file);
+			workbook = WorkbookFactory.create(inputStream);
 			workbook.forEach(sheet -> {
 				sheets.add(sheet.getSheetName());
 			});
@@ -47,9 +47,9 @@ public class FileExcelReader implements FileReaderService {
 		return sheets;
 	}
 
-	public Map<Integer, CellInfo> getColumns(File file) {
+	public Map<Integer, CellInfo> getColumns(InputStream inputStream) {
 		try {
-			workbook = WorkbookFactory.create(file);
+			workbook = WorkbookFactory.create(inputStream);
 			workbook.forEach(sheet -> {
 				columns.putAll(getColumnsBySheetName(sheet.getSheetName()));
 			});
@@ -72,12 +72,12 @@ public class FileExcelReader implements FileReaderService {
 		return columnsBySheet;
 	}
 
-	public Map<String, List<RowFileInformation>> getData(File file) {
+	public Map<String, List<RowFileInformation>> getData(String filename, InputStream inputStream) {
 		
 		try {
-			workbook = WorkbookFactory.create(file);
+			workbook = WorkbookFactory.create(inputStream);
 			workbook.forEach(sheet -> {
-				dataAllSheets.put(sheet.getSheetName(), getFileDataBySheetName(file.getName(), sheet.getSheetName()));
+				dataAllSheets.put(sheet.getSheetName(), getFileDataBySheetName(filename, sheet.getSheetName()));
 			});
 		} catch (EncryptedDocumentException | InvalidFormatException | IOException e) {
 			// TODO Auto-generated catch block

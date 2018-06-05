@@ -40,7 +40,7 @@ public class UploadController {
 		return new ResponseEntity<String>("File saved", HttpStatus.OK);
 	}
 	
-	@GetMapping("/files/{filename:.+}")
+	@GetMapping("/files/{filename}")
     @ResponseBody
     public ResponseEntity<Resource> serveFile(@PathVariable String filename) {
 

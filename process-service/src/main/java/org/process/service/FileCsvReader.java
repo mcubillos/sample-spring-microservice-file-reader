@@ -1,8 +1,6 @@
 package org.process.service;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -30,25 +28,24 @@ public class FileCsvReader implements FileReaderService {
 	}
 
 	@Override
-	public Map<Integer, CellInfo> getColumns(File file) {
+	public Map<Integer, CellInfo> getColumns(InputStream inputStream) {
 		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
-	public Map<String, List<RowFileInformation>> getData(File file) {
+	public Map<String, List<RowFileInformation>> getData(String filename, InputStream inputStream) {
 		Map<String, List<RowFileInformation>> inputList = new HashMap<String, List<RowFileInformation>>();
-		inputList.put(file.getName(), new ArrayList<RowFileInformation>());
+		inputList.put(filename, new ArrayList<RowFileInformation>());
 		AtomicInteger atomicInt = new AtomicInteger(0);
 		
 		try {
-			InputStream inputFS = new FileInputStream(file);
-			BufferedReader br = new BufferedReader(new InputStreamReader(inputFS));
+			BufferedReader br = new BufferedReader(new InputStreamReader(inputStream));
 			// skip the header of the csv
 			List<List<String>> values = br.lines().map(line -> Arrays.asList(line.split(",")))
 					.collect(Collectors.toList());
 			values.forEach(value -> {
-				inputList.get(file.getName()).add(getRowData(file.getName(), value, atomicInt.getAndIncrement()));
+				inputList.get(filename).add(getRowData(filename, value, atomicInt.getAndIncrement()));
 			});
 			br.close();
 		} catch (IOException e) {

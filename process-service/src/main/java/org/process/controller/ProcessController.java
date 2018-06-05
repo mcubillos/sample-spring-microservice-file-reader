@@ -31,7 +31,7 @@ public class ProcessController {
 	private FileReaderService fileReaderService;
 	@Autowired
 	private RowFileInformationRepository repositoryRows;
-	
+	@Autowired
 	private StorageServiceClient storageServiceClient;
 	
 	@PostMapping("/processExcel")
@@ -46,8 +46,8 @@ public class ProcessController {
 
 		try {
 			fileReaderService = new FileExcelReader(repositoryRows);
-			excel.setColumns(fileReaderService.getColumns(file.getFile()));
-			excel.setData(fileReaderService.getData(file.getFile()));
+			excel.setColumns(fileReaderService.getColumns(file.getInputStream()));
+			excel.setData(fileReaderService.getData(file.getFilename(), file.getInputStream()));
 		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -67,8 +67,8 @@ public class ProcessController {
 		
 		try {
 			fileReaderService = new FileCsvReader(repositoryRows);
-			csv.setColumns(fileReaderService.getColumns(file.getFile()));
-			csv.setData(fileReaderService.getData(file.getFile()));
+			csv.setColumns(fileReaderService.getColumns(file.getInputStream()));
+			csv.setData(fileReaderService.getData(file.getFilename(), file.getInputStream()));
 		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

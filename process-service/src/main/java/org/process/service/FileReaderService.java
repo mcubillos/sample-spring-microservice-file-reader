@@ -1,6 +1,6 @@
 package org.process.service;
 
-import java.io.File;
+import java.io.InputStream;
 import java.util.List;
 import java.util.Map;
 
@@ -9,7 +9,7 @@ import org.process.model.RowFileInformation;
 
 public interface FileReaderService {
 
-	 Map<Integer, CellInfo> getColumns(File file);
+	 Map<Integer, CellInfo> getColumns(InputStream inputStream);
 	 
-	 Map<String, List<RowFileInformation>> getData(File file);
+	 Map<String, List<RowFileInformation>> getData(String filename, InputStream inputStream);
 }
