@@ -8,6 +8,7 @@ import org.process.model.CSVFileInformation;
 import org.process.model.ExcelFileInformation;
 import org.process.model.RequestInfo;
 import org.process.repository.RowFileInformationRepository;
+import org.process.service.AsposeFileExcelReader;
 import org.process.service.FileCsvReader;
 import org.process.service.FileExcelReader;
 import org.process.service.FileReaderService;
@@ -46,6 +47,27 @@ public class ProcessController {
 
 		try {
 			fileReaderService = new FileExcelReader(repositoryRows);
+			excel.setColumns(fileReaderService.getColumns(file.getInputStream()));
+			excel.setData(fileReaderService.getData(file.getFilename(), file.getInputStream()));
+		} catch (EncryptedDocumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return new ResponseEntity<ExcelFileInformation>(excel, HttpStatus.OK);
+	}
+	
+	@PostMapping("/processExcelAspose")
+	public ResponseEntity<ExcelFileInformation> porcessAsposeExcelFile(@RequestBody RequestInfo processRequest) throws IOException, URISyntaxException {
+		if (processRequest == null || processRequest.getFilePath().isEmpty()) {
+			LOGGER.info("Not file name found.");
+			return new ResponseEntity<ExcelFileInformation>(HttpStatus.BAD_REQUEST);
+		}
+		LOGGER.info("Searching excel file ...");
+		Resource file = storageServiceClient.getFile(processRequest.getFilePath());
+		ExcelFileInformation excel = new ExcelFileInformation();
+
+		try {
+			fileReaderService = new AsposeFileExcelReader(repositoryRows);
 			excel.setColumns(fileReaderService.getColumns(file.getInputStream()));
 			excel.setData(fileReaderService.getData(file.getFilename(), file.getInputStream()));
 		} catch (EncryptedDocumentException e) {

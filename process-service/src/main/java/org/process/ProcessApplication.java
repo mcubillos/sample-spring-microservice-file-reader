@@ -25,7 +25,7 @@ public class ProcessApplication {
 	@Bean
 	public Docket swaggerApi() {
 		return new Docket(DocumentationType.SWAGGER_2).select()
-				.apis(RequestHandlerSelectors.basePackage("pl.piomin.services.organization.controller"))
+				.apis(RequestHandlerSelectors.any())
 				.paths(PathSelectors.any()).build().apiInfo(new ApiInfoBuilder().version("1.0")
 						.title("Organization API").description("Documentation Organization API v1.0").build());
 	}
