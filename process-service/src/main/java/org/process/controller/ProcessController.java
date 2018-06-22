@@ -7,11 +7,12 @@ import org.apache.poi.EncryptedDocumentException;
 import org.process.model.CSVFileInformation;
 import org.process.model.ExcelFileInformation;
 import org.process.model.RequestInfo;
-import org.process.repository.RowFileInformationRepository;
+import org.process.repository.FileInformationRepository;
 import org.process.service.AsposeFileExcelReader;
 import org.process.service.FileCsvReader;
 import org.process.service.FileExcelReader;
 import org.process.service.FileReaderService;
+import org.process.service.PDIFileExcelReader;
 import org.process.client.StorageServiceClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,9 +30,7 @@ public class ProcessController {
 	private static final Logger LOGGER = LoggerFactory.getLogger(ProcessController.class);
 	
 	@Autowired
-	private FileReaderService fileReaderService;
-	@Autowired
-	private RowFileInformationRepository repositoryRows;
+	private FileInformationRepository repositoryFiles;
 	@Autowired
 	private StorageServiceClient storageServiceClient;
 	
@@ -46,9 +45,36 @@ public class ProcessController {
 		ExcelFileInformation excel = new ExcelFileInformation();
 
 		try {
-			fileReaderService = new FileExcelReader(repositoryRows);
-			excel.setColumns(fileReaderService.getColumns(file.getInputStream()));
-			excel.setData(fileReaderService.getData(file.getFilename(), file.getInputStream()));
+			FileExcelReader fileReaderService = new FileExcelReader(file.getFilename(), file.getInputStream());
+			excel.setFileName(file.getFilename());
+			excel.setSheets(((FileExcelReader)fileReaderService).getSheets());
+			excel.setColumns(fileReaderService.getColumns());
+			excel.setData(fileReaderService.getData());
+			repositoryFiles.save(excel);
+		} catch (EncryptedDocumentException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return new ResponseEntity<ExcelFileInformation>(excel, HttpStatus.OK);
+	}
+	
+	@PostMapping("/processExcelPDI")
+	public ResponseEntity<ExcelFileInformation> porcessPDIExcelFile(@RequestBody RequestInfo processRequest) throws IOException, URISyntaxException {
+		if (processRequest == null || processRequest.getFilePath().isEmpty()) {
+			LOGGER.info("Not file name found.");
+			return new ResponseEntity<ExcelFileInformation>(HttpStatus.BAD_REQUEST);
+		}
+		LOGGER.info("Searching excel file ...");
+		Resource file = storageServiceClient.getFile(processRequest.getFilePath());
+		ExcelFileInformation excel = new ExcelFileInformation();
+
+		try {
+			PDIFileExcelReader fileReaderService = new PDIFileExcelReader(file.getFilename(), file.getInputStream());
+			excel.setFileName(file.getFilename());
+			excel.setSheets(fileReaderService.getSheets());
+			excel.setColumns(fileReaderService.getColumns());
+			excel.setData(fileReaderService.getData());
+			repositoryFiles.save(excel);
 		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -67,9 +93,12 @@ public class ProcessController {
 		ExcelFileInformation excel = new ExcelFileInformation();
 
 		try {
-			fileReaderService = new AsposeFileExcelReader(repositoryRows);
-			excel.setColumns(fileReaderService.getColumns(file.getInputStream()));
-			excel.setData(fileReaderService.getData(file.getFilename(), file.getInputStream()));
+			AsposeFileExcelReader fileReaderService = new AsposeFileExcelReader(file.getFilename(),file.getInputStream());
+			excel.setFileName(file.getFilename());
+			excel.setSheets(((AsposeFileExcelReader)fileReaderService).getSheets());
+			excel.setColumns(fileReaderService.getColumns());
+			excel.setData(fileReaderService.getData());
+			repositoryFiles.save(excel);
 		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -88,9 +117,11 @@ public class ProcessController {
 		CSVFileInformation csv = new CSVFileInformation();
 		
 		try {
-			fileReaderService = new FileCsvReader(repositoryRows);
-			csv.setColumns(fileReaderService.getColumns(file.getInputStream()));
-			csv.setData(fileReaderService.getData(file.getFilename(), file.getInputStream()));
+			FileCsvReader fileReaderService = new FileCsvReader(file.getFilename(), file.getInputStream());
+			csv.setFileName(file.getFilename());
+			csv.setColumns(fileReaderService.getColumns());
+			csv.setData(fileReaderService.getData());
+			repositoryFiles.save(csv);
 		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();

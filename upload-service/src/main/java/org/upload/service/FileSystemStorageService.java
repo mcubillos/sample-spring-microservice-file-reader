@@ -7,6 +7,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -57,13 +58,13 @@ public class FileSystemStorageService implements StorageService {
     @Override
     public void storeByFilePath(String filePath) {
 		try {
-			URI url = new URI(filePath);
-			File file = new File(url.getPath());
+			File file = new File(filePath);
 			String filename = StringUtils.cleanPath(file.getName());
             
-			if (file.length() == 0) {
+			/*if (file.length() == 0) {
                 throw new StorageException("Failed to store empty file " + filename);
-            }
+            }*/
+			
             if (filename.contains("..")) {
                 // This is a security check
                 throw new StorageException(
@@ -75,7 +76,7 @@ public class FileSystemStorageService implements StorageService {
                     StandardCopyOption.REPLACE_EXISTING);
             }
         }
-        catch (IOException | URISyntaxException e) {
+        catch (IOException e) {
             throw new StorageException("Failed to store file " + filePath, e);
         }
     }

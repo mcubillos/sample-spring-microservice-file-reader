@@ -5,15 +5,14 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import org.process.model.CellInfo;
 import org.process.model.RowFileInformation;
-import org.process.repository.RowFileInformationRepository;
-
 import com.aspose.cells.Cell;
 import com.aspose.cells.CellValueType;
 import com.aspose.cells.Cells;
-import com.aspose.cells.Range;
+import com.aspose.cells.DeleteOptions;
 import com.aspose.cells.Row;
 import com.aspose.cells.RowCollection;
 import com.aspose.cells.Workbook;
@@ -22,26 +21,44 @@ import com.aspose.cells.WorksheetCollection;
 
 public class AsposeFileExcelReader implements FileReaderService {
 
-	private RowFileInformationRepository repositoryRows;
-
+	private String filename;
+	private InputStream inputStream;
 	private Workbook workbook;
+	private WorksheetCollection worksheetCollection;
+	
+	private List<CellInfo> rowInfo = null;
 	private List<String> sheets = new ArrayList<String>();
-	private Map<Integer, CellInfo> columns = new HashMap<Integer, CellInfo>();
+	private Map<String, Map<Integer, CellInfo>> columns = new HashMap<String, Map<Integer, CellInfo>>();
 	private Map<String, List<RowFileInformation>> dataAllSheets = new HashMap<String, List<RowFileInformation>>();
 
-	public AsposeFileExcelReader(RowFileInformationRepository repositoryRows) {
+	public AsposeFileExcelReader(String filename, InputStream inputStream) {
 		super();
-		this.repositoryRows = repositoryRows;
+		this.filename = filename;
+		this.inputStream = inputStream;
+		read();
 	}
 
-	public List<String> getSheets(InputStream inputStream) {
+	@Override
+	public void read() {
 		try {
 			workbook = new Workbook(inputStream);
-			WorksheetCollection worksheetCollection = workbook.getWorksheets();
-
-			for (int j = 0; j < worksheetCollection.getCount(); j++) {
-				sheets.add(worksheetCollection.get(j).getName());
-			}
+			worksheetCollection = workbook.getWorksheets();
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public List<String> getSheets() {
+		try {
+			Consumer<Worksheet> workSheetConsumer = new Consumer<Worksheet>() {
+				@Override
+				public void accept(Worksheet worksheet) {
+					sheets.add(worksheet.getName());
+				}
+			};
+			
+			worksheetCollection.forEach(workSheetConsumer);
 
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -51,31 +68,35 @@ public class AsposeFileExcelReader implements FileReaderService {
 	}
 
 	@Override
-	public Map<Integer, CellInfo> getColumns(InputStream inputStream) {
+	public Map<String, Map<Integer, CellInfo>> getColumns() {
 		try {
-			workbook = new Workbook(inputStream);
-			WorksheetCollection worksheetCollection = workbook.getWorksheets();
-
-			for (int j = 0; j < worksheetCollection.getCount(); j++) {
-				columns.putAll(getColumnNamesBySheetName(worksheetCollection.get(j).getName()));
-			}
-
+			Consumer<Worksheet> workSheetConsumer = new Consumer<Worksheet>() {
+				@Override
+				public void accept(Worksheet worksheet) {
+					columns.put(worksheet.getName(), getColumnNamesBySheet(worksheet));
+				}
+			};
+			
+			worksheetCollection.forEach(workSheetConsumer);
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
 		return columns;
 	}
 
 	@Override
-	public Map<String, List<RowFileInformation>> getData(String filename, InputStream inputStream) {
+	public Map<String, List<RowFileInformation>> getData() {
 		try {
-			workbook = new Workbook(inputStream);
-			WorksheetCollection worksheetCollection = workbook.getWorksheets();
-
-			for (int j = 0; j < worksheetCollection.getCount(); j++) {
-				dataAllSheets.put(worksheetCollection.get(j).getName(), getFileDataBySheetName(filename, worksheetCollection.get(j).getName()));
-			}
+			Consumer<Worksheet> workSheetConsumer = new Consumer<Worksheet>() {
+				@Override
+				public void accept(Worksheet worksheet) {
+					dataAllSheets.put(worksheet.getName(), getFileDataBySheet(worksheet));
+				}
+			};
+			
+			worksheetCollection.forEach(workSheetConsumer);
 
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
@@ -85,53 +106,66 @@ public class AsposeFileExcelReader implements FileReaderService {
 		return dataAllSheets;
 	}
 
-	public List<RowFileInformation> getFileDataBySheetName(String fileName, String sheetName) {
+	private void deleteEmptyCells(Cells cells) {
+		//Create an instance of DeleteOptions class
+		DeleteOptions options = new DeleteOptions();
+		//Set UpdateReference property to true;
+		options.setUpdateReference(true);
+
+		//Delete all blank rows and columns
+		cells.deleteBlankColumns(options);
+		cells.deleteBlankRows(options);
+	}
+	
+	private List<RowFileInformation> getFileDataBySheet(Worksheet worksheet) {
 		List<RowFileInformation> dataBySheet = new ArrayList<RowFileInformation>();
-
-		Worksheet worksheet = workbook.getWorksheets().get(sheetName);
+		
 		Cells cells = worksheet.getCells();
-
-		// Access the Maximum Display Range
-		Range range = worksheet.getCells().getMaxDisplayRange();
-		int tcols = range.getColumnCount();
+		deleteEmptyCells(cells);
 		
 		RowCollection rows = cells.getRows();
+		rows.removeAt(0);
 		
-		for (int i = 0 ; i < rows.getCount() ; i++)
-		{
-			List<CellInfo> rowInfo = new ArrayList<CellInfo>();
-			
-			for (int j = 0 ; j < tcols ; j++)
-			{
-				CellInfo cellInfo = new CellInfo(readCellContent(cells.get(i,j)));
+		Consumer<Cell> cellConsumer = new Consumer<Cell>() {
+			@Override
+			public void accept(Cell cell) {
+				CellInfo cellInfo = new CellInfo(readCellContent(cell));
 				rowInfo.add(cellInfo);
 			}
-			RowFileInformation rowFileInfo = new RowFileInformation(fileName, sheetName, i, rowInfo);
-			repositoryRows.save(rowFileInfo);
-			dataBySheet.add(rowFileInfo);
-		}
+		};
+		
+		Consumer<Row> rowConsumer = new Consumer<Row>() {
+			@Override
+			public void accept(Row row) {
+				rowInfo = new ArrayList<CellInfo>();
+				row.forEach(cellConsumer);
 
+				RowFileInformation rowFileInfo = new RowFileInformation(row.getIndex(), rowInfo);
+				dataBySheet.add(rowFileInfo);
+			}
+		};
+		
+		rows.forEach(rowConsumer);
 		return dataBySheet;
 	}
 	
-	public Map<Integer, CellInfo> getColumnNamesBySheetName(String name) {
+	private Map<Integer, CellInfo> getColumnNamesBySheet(Worksheet worksheet) {
 		Map<Integer, CellInfo> columnsBySheet = new HashMap<Integer, CellInfo>();
 
-		Worksheet worksheet = workbook.getWorksheets().get(name);
 		Cells cells = worksheet.getCells();
-
-		// Access the Maximum Display Range
-		Range range = worksheet.getCells().getMaxDisplayRange();
-		int tcols = range.getColumnCount();
-
+		deleteEmptyCells(cells);
+		
 		Row firstRow = cells.getRows().get(0);
+		
+		Consumer<Cell> cellConsumer = new Consumer<Cell>() {
+			@Override
+			public void accept(Cell cell) {
+				CellInfo cellInfo = new CellInfo(readCellContent(cell));
+				columnsBySheet.put(cell.getColumn(), cellInfo);
+			}
+		};
 
-		for (int j = 0; j < tcols; j++) {
-			Cell cell = firstRow.get(j);
-			CellInfo cellInfo = new CellInfo(readCellContent(cell));
-			columnsBySheet.put(cell.getColumn(), cellInfo);
-		}
-
+		firstRow.forEach(cellConsumer);
 		return columnsBySheet;
 	}
 
@@ -152,5 +186,4 @@ public class AsposeFileExcelReader implements FileReaderService {
 			return "";
 		}
 	}
-
 }

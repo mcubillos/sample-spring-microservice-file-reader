@@ -11,127 +11,133 @@ import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.openxml4j.exceptions.InvalidFormatException;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.process.model.CellInfo;
 import org.process.model.RowFileInformation;
-import org.process.repository.RowFileInformationRepository;
-import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
-@Service
 public class FileExcelReader implements FileReaderService {
-
-	private RowFileInformationRepository repositoryRows;
 	
+	private String filename;
+	private InputStream inputStream;
 	private Workbook workbook;
+	
 	private List<String> sheets = new ArrayList<String>();
-	private Map<Integer, CellInfo> columns = new HashMap<Integer, CellInfo>();
-	private Map<String,List<RowFileInformation>> dataAllSheets = new HashMap<String, List<RowFileInformation>>();
+	private Map<String, Map<Integer, CellInfo>> columns = new HashMap<String, Map<Integer, CellInfo>>();
+	private Map<String, List<RowFileInformation>> dataAllSheets = new HashMap<String, List<RowFileInformation>>();
 
-	public FileExcelReader(RowFileInformationRepository repositoryRows) {
+	@Autowired
+	public FileExcelReader(String filename, InputStream inputStream) {
 		super();
-		this.repositoryRows = repositoryRows;
+		this.filename = filename;
+		this.inputStream = inputStream;
+		read();
 	}
-
-	public List<String> getSheets(InputStream inputStream) {
+	
+	@Override
+	public void read(){
 		try {
 			workbook = WorkbookFactory.create(inputStream);
+
+		} catch (EncryptedDocumentException | InvalidFormatException | IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	} 
+
+	public List<String> getSheets() {
+		try {
 			workbook.forEach(sheet -> {
 				sheets.add(sheet.getSheetName());
 			});
-		} catch (EncryptedDocumentException | InvalidFormatException | IOException e) {
+
+		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		
+
 		return sheets;
 	}
 
-	public Map<Integer, CellInfo> getColumns(InputStream inputStream) {
+	public Map<String, Map<Integer, CellInfo>> getColumns() {
 		try {
-			workbook = WorkbookFactory.create(inputStream);
 			workbook.forEach(sheet -> {
-				columns.putAll(getColumnsBySheetName(sheet.getSheetName()));
+				columns.put(sheet.getSheetName(), getColumnsBySheet(sheet));
 			});
-		} catch (EncryptedDocumentException | InvalidFormatException | IOException e) {
+			
+		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
-		}
+		} 
 
 		return columns;
 	}
 
-	public Map<Integer, CellInfo> getColumnsBySheetName(String name) {
-		Map<Integer, CellInfo> columnsBySheet = new HashMap<Integer, CellInfo>();
+	public Map<String, List<RowFileInformation>> getData() {
 
-		workbook.getSheet(name).getRow(0).forEach(cell -> {
-			CellInfo cellInfo = new CellInfo(readCellContent(cell));
-			columnsBySheet.put(cell.getColumnIndex(), cellInfo);
-		});
-
-		return columnsBySheet;
-	}
-
-	public Map<String, List<RowFileInformation>> getData(String filename, InputStream inputStream) {
-		
 		try {
-			workbook = WorkbookFactory.create(inputStream);
 			workbook.forEach(sheet -> {
-				dataAllSheets.put(sheet.getSheetName(), getFileDataBySheetName(filename, sheet.getSheetName()));
+				dataAllSheets.put(sheet.getSheetName(), getFileDataBySheet(sheet));
 			});
-		} catch (EncryptedDocumentException | InvalidFormatException | IOException e) {
+			
+		} catch (EncryptedDocumentException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		return dataAllSheets;
 	}
 
-	public List<RowFileInformation> getFileDataBySheetName(String fileName, String sheetName) {
+	private Map<Integer, CellInfo> getColumnsBySheet(Sheet sheet) {
+		Map<Integer, CellInfo> columnsBySheet = new HashMap<Integer, CellInfo>();
+
+		sheet.getRow(0).forEach(cell -> {
+			CellInfo cellInfo = new CellInfo(readCellContent(cell));
+			columnsBySheet.put(cell.getColumnIndex(), cellInfo);
+		});
+
+		return columnsBySheet;
+	}
+	
+	private List<RowFileInformation> getFileDataBySheet(Sheet sheet) {
 		List<RowFileInformation> dataBySheet = new ArrayList<RowFileInformation>();
 
-		workbook.getSheet(sheetName).forEach(row -> {
-			dataBySheet.add(getRowData(fileName, sheetName, row.getRowNum()));
+		sheet.forEach(row -> {
+			dataBySheet.add(getRowData(row));
 		});
 
 		return dataBySheet;
 	}
 
-	public RowFileInformation getRowData(String fileName, String sheetName, int rowId) {
+	private RowFileInformation getRowData(Row row) {
 		List<CellInfo> rowInfo = new ArrayList<CellInfo>();
-		
-		workbook.getSheet(sheetName).getRow(rowId).forEach(cell -> {
+
+		row.forEach(cell -> {
 			CellInfo cellInfo = new CellInfo(readCellContent(cell));
 			rowInfo.add(cellInfo);
 		});
 
-		RowFileInformation rowFileInfo = new RowFileInformation(fileName, sheetName, rowId, rowInfo);
-		repositoryRows.save(rowFileInfo);
-		return rowFileInfo;
+		return new RowFileInformation(row.getRowNum(), rowInfo);
 	}
 
 	private String readCellContent(Cell cell) {
-		String content;
 		switch (cell.getCellTypeEnum()) {
 		case STRING:
-			content = cell.getStringCellValue();
-			break;
+			return cell.getStringCellValue();
 		case NUMERIC:
 			if (DateUtil.isCellDateFormatted(cell)) {
-				content = cell.getDateCellValue() + "";
+				return cell.getDateCellValue() + "";
 			} else {
-				content = cell.getNumericCellValue() + "";
+				return cell.getNumericCellValue() + "";
 			}
-			break;
 		case BOOLEAN:
-			content = cell.getBooleanCellValue() + "";
-			break;
+			return cell.getBooleanCellValue() + "";
 		case FORMULA:
-			content = cell.getCellFormula() + "";
-			break;
+			return cell.getCellFormula() + "";
 		default:
-			content = "";
+			return "";
 		}
-		return content;
 	}
-
 }
