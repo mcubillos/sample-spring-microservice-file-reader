@@ -117,6 +117,9 @@ public class PDIFileExcelReader implements FileReaderService {
 	}
 	
 	private String readCellContent(KCell cell) {
+		if(cell == null) {
+			return "";
+		}
 		switch (cell.getType()) {
 		case LABEL:
 			return (String) cell.getValue();
